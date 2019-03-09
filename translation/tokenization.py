@@ -4,15 +4,18 @@ from random import Random
 from math import log10
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
+import numpy as np
 
 # Special integer code to be used in sentences encoded as a zero-padded integer
 # arrays (same convetions as in the official seq2seq tensorflow tutorial):
 # https://www.tensorflow.org/tutorials/seq2seq/
+
+PAD, GO, EOS, UNK = START_VOCAB = ['_PAD', '_GO', '_EOS', '_UNK']
+
 _PAD = "_PAD"
 _GO = "_GO"
 _EOS = "_EOS"
 _UNK = "_UNK"
-START_VOCAB = [_PAD, _GO, _EOS, _UNK]
 
 PAD_ID = 0
 GO_ID = 1
@@ -287,6 +290,17 @@ def build_vocabulary(sentences, word_level=True):
         vocabulary[token] = i
     return vocabulary, rev_vocabulary
 
+def build_vocabulary_token(tokenized_sequences):
+    rev_vocabulary = START_VOCAB[:]
+    unique_tokens = set()
+    for tokens in tokenized_sequences:
+        unique_tokens.update(tokens)
+    rev_vocabulary += sorted(unique_tokens)
+    vocabulary = {}
+    for i, token in enumerate(rev_vocabulary):
+        vocabulary[token] = i
+    return vocabulary, rev_vocabulary
+
 
 def sentence_to_token_ids(sentence, vocabulary, word_level=True):
     """Convert a string to a sequence of integer token ids
@@ -324,3 +338,36 @@ def token_ids_to_sentence(token_ids, rev_vocabulary, word_level=True):
     """
     sep = " " if word_level else ""
     return sep.join(rev_vocabulary[idx] for idx in token_ids if idx > 2)
+
+
+def vectorize_corpus(source_sequences, target_sequences, shared_vocab,
+                     word_level_source=True, word_level_target=True,
+                     max_length=20):
+
+
+    assert len(source_sequences) == len(target_sequences)
+    n_sequences = len(source_sequences)
+    source_ids = np.empty(shape=(n_sequences, max_length), dtype=np.int32)
+    source_ids.fill(shared_vocab[PAD])
+    target_ids = np.empty(shape=(n_sequences, max_length), dtype=np.int32)
+    target_ids.fill(shared_vocab[PAD])
+    numbered_pairs = zip(range(n_sequences), source_sequences, target_sequences)
+    for i, source_seq, target_seq in numbered_pairs:
+        source_tokens = tokenize(source_seq, word_level=word_level_source)
+        target_tokens = tokenize(target_seq, word_level=word_level_target)
+        
+        in_tokens, out_tokens = make_input_output(source_tokens, target_tokens)
+        
+        in_token_ids = [shared_vocab.get(t, UNK) for t in in_tokens]
+        source_ids[i, -len(in_token_ids):] = in_token_ids
+    
+        out_token_ids = [shared_vocab.get(t, UNK) for t in out_tokens]
+        target_ids[i, -len(out_token_ids):] = out_token_ids
+    return source_ids, target_ids
+
+def make_input_output(source_tokens, target_tokens, reverse_source=True):
+    if reverse_source:
+        source_tokens = source_tokens[::-1]
+    input_tokens = source_tokens + [GO] + target_tokens
+    output_tokens = target_tokens + [EOS]
+    return input_tokens, output_tokens

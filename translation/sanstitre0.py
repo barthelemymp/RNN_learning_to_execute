@@ -11,6 +11,8 @@ encodage des nombres
 from __future__ import print_function
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
 import os
 import numpy as np
 
@@ -40,11 +42,12 @@ X_test, Y_test = vectorize_corpus(fr_test, num_test, shared_vocab,word_level_tar
 
 vocab_size = len(shared_vocab)
 config = {
-        'dropout': 0.2,
-        'vocab_size': vocab_size,
-        'num_layers': 1,
-        'embsize': 32,
-        'dim_recurrent':50,
+        'dropout': torch.tensor(0.2),
+        'vocab_size': torch.tensor(vocab_size),
+        'num_layers': torch.tensor(1),
+        'embsize': torch.tensor(32),
+        'dim_recurrent':torch.tensor(50),
+        'num_layers':torch.FloatTensor(1)
     }
 
 

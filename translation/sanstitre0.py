@@ -40,14 +40,34 @@ X_train, Y_train = vectorize_corpus(fr_train, num_train, shared_vocab,word_level
 X_val, Y_val = vectorize_corpus(fr_val, num_val, shared_vocab,word_level_target=False)
 X_test, Y_test = vectorize_corpus(fr_test, num_test, shared_vocab,word_level_target=False)
 
+use_gpu = torch.cuda.is_available()
+def gpu(tensor, gpu=use_gpu):
+    if gpu:
+        return tensor.cuda()
+    else:
+        return tensor
+
 vocab_size = len(shared_vocab)
-config = {
+
+config ={
+        'dropout': 0.2,
+        'vocab_size': vocab_size,
+        'num_layers': 1,
+        'embsize': 32,
+        'dim_recurrent': 50,
+        'num_layers': 1,
+        'num_layers_int': 1
+    }
+
+
+config_tensor = {
         'dropout': torch.tensor(0.2),
         'vocab_size': torch.tensor(vocab_size),
         'num_layers': torch.tensor(1),
         'embsize': torch.tensor(32),
         'dim_recurrent':torch.tensor(50),
-        'num_layers':torch.tensor(1)
+        'num_layers':torch.FloatTensor(1),
+        'num_layers_int':torch.IntTensor(1)
     }
 
 
@@ -58,19 +78,35 @@ class Encoder1(nn.Module):
         self.config = config
         self.embed = nn.Embedding(config['vocab_size'], config['embsize'])
         self.drop = nn.Dropout(config['dropout'])
+
         self.rnn = nn.LSTM(input_size = config['embsize'], 
-                           hidden_size = config['dim_recurrent'],
-                           num_layers = config['num_layers'])
+                           hidden_size = config['dim_recurrent'])
+
+
+        # BART
+        #self.rnn = nn.LSTM(input_size = config['embsize'], 
+        #                   hidden_size = config['dim_recurrent'],
+        #                   num_layers = config['num_layers'])
+
+
 #        self.gru = nn.gru(input_size = config['dim_input'], 
 #                           hidden_size = config['dim_recurrent'],
 #                           num_layers = config['num_layers'])
         self.dense = nn.Linear(config['dim_recurrent'],config['vocab_size'])
+        self.hidden = self.init_hidden()
 
     def forward(self, x):
+        x=torch.LongTensor(x)
+        print(x.shape)
         layer_embeded = self.embed(x)
+        print(layer_embeded.shape)
         layer_drop = self.drop(layer_embeded)
-        layer_rnn = self.rnn(layer_drop, hidden)[0]
+        print(layer_drop.shape)
+        layer_drop=layer_drop.unsqueeze(1)
+        layer_rnn = self.rnn(layer_drop, self.hidden)[0]
+        print(layer_rnn.shape)
         out = self.dense(F.softmax(layer_rnn))
+        print(out.shape)
         return out
     
     def init_hidden(self):
@@ -83,7 +119,7 @@ class Encoder1(nn.Module):
     
 
 
-model = Encoder1(config)
+model = gpu(Encoder1(config))
 loss_function = nn.NLLLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=0.1)    
 
@@ -111,6 +147,11 @@ for epoch in range(300):  # again, normally you would NOT do 300 epochs, it is t
 
         # Step 3. Run our forward pass.
         tag_scores = model(sentence_in)
+        tag_scores = tag_scores.squeeze(1)
+        print(tag_scores.shape)
+        print(targets.shape)
+        _,tag_scores =torch.max(tag_scores, 1)
+        print(tag_scores.shape)
 
         # Step 4. Compute the loss, gradients, and update the parameters by
         #  calling optimizer.step()

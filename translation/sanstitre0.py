@@ -47,7 +47,7 @@ config = {
         'num_layers': torch.tensor(1),
         'embsize': torch.tensor(32),
         'dim_recurrent':torch.tensor(50),
-        'num_layers':torch.FloatTensor(1)
+        'num_layers':torch.tensor(1)
     }
 
 

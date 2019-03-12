@@ -15,12 +15,14 @@ import torch.nn.functional as F
 import torch.optim as optim
 import os
 import numpy as np
+#import matplotlib.pyplot as plt
 
 import numpy as np
 from tokenization import tokenize
 from tokenization import build_vocabulary_token
 from tokenization import vectorize_corpus
 import csv
+import time
 
 fr_train=np.load('data_npy/fr_train.npy')
 num_train=np.load('data_npy/num_train.npy')
@@ -48,6 +50,7 @@ def gpu(tensor, gpu=use_gpu):
         return tensor
 
 vocab_size = len(shared_vocab)
+batch_size=8
 
 config ={
         'dropout': 0.2,
@@ -56,19 +59,20 @@ config ={
         'embsize': 32,
         'dim_recurrent': 50,
         'num_layers': 1,
-        'num_layers_int': 1
+        'num_layers_int': 1,
+        'batch_size':batch_size
     }
 
 
-config_tensor = {
-        'dropout': torch.tensor(0.2),
-        'vocab_size': torch.tensor(vocab_size),
-        'num_layers': torch.tensor(1),
-        'embsize': torch.tensor(32),
-        'dim_recurrent':torch.tensor(50),
-        'num_layers':torch.FloatTensor(1),
-        'num_layers_int':torch.IntTensor(1)
-    }
+# config_tensor = {
+#         'dropout': torch.tensor(0.2),
+#         'vocab_size': torch.tensor(vocab_size),
+#         'num_layers': torch.tensor(1),
+#         'embsize': torch.tensor(32),
+#         'dim_recurrent':torch.tensor(50),
+#         'num_layers':torch.FloatTensor(1),
+#         'num_layers_int':torch.IntTensor(1)
+#     }
 
 
 class Encoder1(nn.Module):
@@ -96,21 +100,25 @@ class Encoder1(nn.Module):
         self.hidden = self.init_hidden()
 
     def forward(self, x):
-        x2=torch.LongTensor(x)
-        #print(x.shape)
-        layer_embeded = self.embed(x2)
-        #print(layer_embeded.shape)
-        layer_drop = self.drop(layer_embeded)
-        #print(layer_drop.shape)
-        layer_drop2=layer_drop.unsqueeze(1)
-        layer_rnn = self.rnn(layer_drop2, self.hidden)[0]
-        layer_dense = self.dense(layer_rnn)
-        out=F.softmax(layer_dense,dim=2)
-        out2 = out.squeeze(1)
-        out3=out2.transpose(0, 1)
-        out4=out3.unsqueeze(0)
 
-        #print(out)
+        # BATCH VERSION
+        x2=torch.LongTensor(x)
+
+        layer_embeded = self.embed(x2)
+
+        layer_drop = self.drop(layer_embeded)
+
+        layer_drop=layer_drop.transpose(0,1)
+
+        layer_rnn = self.rnn(layer_drop, self.hidden)[0]
+
+        layer_dense = self.dense(layer_rnn)
+
+        out=F.softmax(layer_dense,dim=2) #[20,2,40]
+
+        out3=out.transpose(0, 1)
+        out4=out3.transpose(1,2)
+
         return out4
     
     def init_hidden(self):
@@ -118,27 +126,38 @@ class Encoder1(nn.Module):
         # Refer to the Pytorch documentation to see exactly
         # why they have this dimensionality.
         # The axes semantics are (num_layers, minibatch_size, hidden_dim)
-        return (torch.zeros(config['num_layers'], 1, config['dim_recurrent']),
-                torch.zeros(config['num_layers'], 1, config['dim_recurrent']))
-    
+        return (torch.zeros(config['num_layers'], batch_size, config['dim_recurrent']),
+                torch.zeros(config['num_layers'], batch_size, config['dim_recurrent']))
 
 
 model = gpu(Encoder1(config))
 loss_function = nn.NLLLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=0.1)    
 
+start=time.time()
+current_loss= 0.
+all_losses=[]
 
 
-with torch.no_grad():
-    inputs = X_train[0]
-    tag_scores = model(inputs)
+# with torch.no_grad():
 
-for epoch in range(10):  # again, normally you would NOT do 300 epochs, it is toy data
-    print(epoch)
-    for i in range(len(X_train)):
+#     inputs = np.concatenate((np.expand_dims(X_train[0],axis=0),np.expand_dims(X_train[1],axis=0)),axis=0)
+#     tag_scores = model(inputs)
+
+
+idx=np.arange(X_train.shape[0])
+
+for epoch in range(1):  # again, normally you would NOT do 300 epochs, it is toy data
+    np.random.shuffle(idx)
+    X_train=X_train[idx]
+    Y_train=Y_train[idx]
+
+    current_batch=0
+    for i in range(len(X_train)//batch_size):
         # Step 1. Remember that Pytorch accumulates gradients.
         # We need to clear them out before each instance
         model.zero_grad()
+
 
         # Also, we need to clear out the hidden state of the LSTM,
         # detaching it from its history on the last instance.
@@ -146,33 +165,41 @@ for epoch in range(10):  # again, normally you would NOT do 300 epochs, it is to
 
         # Step 2. Get our inputs ready for the network, that is, turn them into
         # Tensors of word indices.
-        sentence_in = X_train[i]
-        targets =  Y_train[i]
-        targets_new=np.expand_dims(targets,axis=0)
-        targets_new2=torch.tensor(targets_new,dtype=torch.int64)
 
-        #targets_l=np.zeros((20,vocab_size))
-        #for i in range(20):
-        #    targets_l[i,targets[i]]=1
+        batch_x=X_train[current_batch:current_batch+batch_size]
+        batch_y=torch.tensor(Y_train[current_batch:current_batch+batch_size],dtype=torch.int64)
+        current_batch+=batch_size
 
         # Step 3. Run our forward pass.
-        tag_scores = model(sentence_in)
-        
-        #_,tag_scores =torch.max(tag_scores, 1)
-        
+        batch_pred = model(batch_x)
 
-        targets2=torch.tensor(targets,dtype=torch.int64)
-        targets3=targets2.unsqueeze(0)
 
         # Step 4. Compute the loss, gradients, and update the parameters by
         #  calling optimizer.step()
-        loss = loss_function(tag_scores, targets_new2)
+        loss = loss_function(batch_pred, batch_y)
         loss.backward()
         optimizer.step()
-        print(loss)
 
-print(model(X_val[0]))
-print(Y_val[0])
+        current_loss += loss.item()
+
+
+        if i % 100 == 0 :
+            with torch.no_grad():
+                model.train(False)
+                #batch_pred, batch_y = test_eval()
+                #f1 = f1_score(batch_y,batch_pred, average="weighted")
+                #precision = precision_score(batch_y,batch_pred,average="weighted")
+                all_losses.append(current_loss/100)
+                print(loss.item(),'\titeration:', i, '\tepoch', epoch)
+                model.train(True)
+                current_loss=0.
+
+
+print("finito")
+np.save('result/losses_1',all_losses)
+
+# print(model(X_val[0]))
+# print(Y_val[0])
 
 # See what the scores are after training
 # with torch.no_grad():

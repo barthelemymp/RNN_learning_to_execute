@@ -96,18 +96,22 @@ class Encoder1(nn.Module):
         self.hidden = self.init_hidden()
 
     def forward(self, x):
-        x=torch.LongTensor(x)
-        print(x.shape)
-        layer_embeded = self.embed(x)
-        print(layer_embeded.shape)
+        x2=torch.LongTensor(x)
+        #print(x.shape)
+        layer_embeded = self.embed(x2)
+        #print(layer_embeded.shape)
         layer_drop = self.drop(layer_embeded)
-        print(layer_drop.shape)
-        layer_drop=layer_drop.unsqueeze(1)
-        layer_rnn = self.rnn(layer_drop, self.hidden)[0]
-        print(layer_rnn.shape)
-        out = self.dense(F.softmax(layer_rnn))
-        print(out.shape)
-        return out
+        #print(layer_drop.shape)
+        layer_drop2=layer_drop.unsqueeze(1)
+        layer_rnn = self.rnn(layer_drop2, self.hidden)[0]
+        layer_dense = self.dense(layer_rnn)
+        out=F.softmax(layer_dense,dim=2)
+        out2 = out.squeeze(1)
+        out3=out2.transpose(0, 1)
+        out4=out3.unsqueeze(0)
+
+        #print(out)
+        return out4
     
     def init_hidden(self):
         # Before we've done anything, we dont have any hidden state.
@@ -128,9 +132,9 @@ optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
 with torch.no_grad():
     inputs = X_train[0]
     tag_scores = model(inputs)
-    print(tag_scores)
 
-for epoch in range(300):  # again, normally you would NOT do 300 epochs, it is toy data
+for epoch in range(10):  # again, normally you would NOT do 300 epochs, it is toy data
+    print(epoch)
     for i in range(len(X_train)):
         # Step 1. Remember that Pytorch accumulates gradients.
         # We need to clear them out before each instance
@@ -138,31 +142,42 @@ for epoch in range(300):  # again, normally you would NOT do 300 epochs, it is t
 
         # Also, we need to clear out the hidden state of the LSTM,
         # detaching it from its history on the last instance.
-        model.hidden = model.init_hidden()
+        #model.hidden = model.init_hidden()
 
         # Step 2. Get our inputs ready for the network, that is, turn them into
         # Tensors of word indices.
         sentence_in = X_train[i]
         targets =  Y_train[i]
+        targets_new=np.expand_dims(targets,axis=0)
+        targets_new2=torch.tensor(targets_new,dtype=torch.int64)
+
+        #targets_l=np.zeros((20,vocab_size))
+        #for i in range(20):
+        #    targets_l[i,targets[i]]=1
 
         # Step 3. Run our forward pass.
         tag_scores = model(sentence_in)
-        tag_scores = tag_scores.squeeze(1)
-        print(tag_scores.shape)
-        print(targets.shape)
-        _,tag_scores =torch.max(tag_scores, 1)
-        print(tag_scores.shape)
+        
+        #_,tag_scores =torch.max(tag_scores, 1)
+        
+
+        targets2=torch.tensor(targets,dtype=torch.int64)
+        targets3=targets2.unsqueeze(0)
 
         # Step 4. Compute the loss, gradients, and update the parameters by
         #  calling optimizer.step()
-        loss = loss_function(tag_scores, targets)
+        loss = loss_function(tag_scores, targets_new2)
         loss.backward()
         optimizer.step()
+        print(loss)
+
+print(model(X_val[0]))
+print(Y_val[0])
 
 # See what the scores are after training
-with torch.no_grad():
-    inputs = X_train[0]
-    tag_scores = model(inputs)
+# with torch.no_grad():
+#     inputs = X_train[0]
+#     tag_scores = model(inputs)
     
     
     

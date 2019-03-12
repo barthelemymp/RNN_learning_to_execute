@@ -50,16 +50,15 @@ def gpu(tensor, gpu=use_gpu):
         return tensor
 
 vocab_size = len(shared_vocab)
-batch_size=8
+batch_size=32
 
 config ={
         'dropout': 0.2,
         'vocab_size': vocab_size,
         'num_layers': 1,
         'embsize': 32,
-        'dim_recurrent': 50,
-        'num_layers': 1,
-        'num_layers_int': 1,
+        'dim_recurrent': 10,
+        'num_layers': 2,
         'batch_size':batch_size
     }
 
@@ -84,7 +83,8 @@ class Encoder1(nn.Module):
         self.drop = nn.Dropout(config['dropout'])
 
         self.rnn = nn.LSTM(input_size = config['embsize'], 
-                           hidden_size = config['dim_recurrent'])
+                           hidden_size = config['dim_recurrent'],
+                           num_layers = config['num_layers'])
 
 
         # BART
@@ -131,8 +131,8 @@ class Encoder1(nn.Module):
 
 
 model = gpu(Encoder1(config))
-loss_function = nn.NLLLoss()
-optimizer = torch.optim.SGD(model.parameters(), lr=0.1)    
+loss_function = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.1)    
 
 start=time.time()
 current_loss= 0.
@@ -147,7 +147,7 @@ all_losses=[]
 
 idx=np.arange(X_train.shape[0])
 
-for epoch in range(1):  # again, normally you would NOT do 300 epochs, it is toy data
+for epoch in range(5):  # again, normally you would NOT do 300 epochs, it is toy data
     np.random.shuffle(idx)
     X_train=X_train[idx]
     Y_train=Y_train[idx]
@@ -173,7 +173,6 @@ for epoch in range(1):  # again, normally you would NOT do 300 epochs, it is toy
         # Step 3. Run our forward pass.
         batch_pred = model(batch_x)
 
-
         # Step 4. Compute the loss, gradients, and update the parameters by
         #  calling optimizer.step()
         loss = loss_function(batch_pred, batch_y)
@@ -195,8 +194,20 @@ for epoch in range(1):  # again, normally you would NOT do 300 epochs, it is toy
                 current_loss=0.
 
 
-print("finito")
-np.save('result/losses_1',all_losses)
+x_val=X_train[0:batch_size]
+y_val=Y_train[0:batch_size]
+
+x_pred=model(x_val)
+
+_,x_pred=torch.max(x_pred,dim=1)
+
+print(x_pred)
+print(y_val)
+
+
+
+
+
 
 # print(model(X_val[0]))
 # print(Y_val[0])

@@ -359,13 +359,15 @@ def vectorize_corpus(source_sequences, target_sequences, shared_vocab,
         in_tokens, out_tokens = make_input_output(source_tokens, target_tokens)
         
         in_token_ids = [shared_vocab.get(t, UNK) for t in in_tokens]
-        source_ids[i, -len(in_token_ids):] = in_token_ids
+        #source_ids[i, -len(in_token_ids):] = in_token_ids
+        source_ids[i, :len(in_token_ids)] = in_token_ids
     
         out_token_ids = [shared_vocab.get(t, UNK) for t in out_tokens]
-        target_ids[i, -len(out_token_ids):] = out_token_ids
+        target_ids[i, :len(out_token_ids)] = out_token_ids
+        #target_ids[i, -len(out_token_ids):] = out_token_ids
     return source_ids, target_ids
 
-def make_input_output(source_tokens, target_tokens, reverse_source=True):
+def make_input_output(source_tokens, target_tokens, reverse_source=False):
     if reverse_source:
         source_tokens = source_tokens[::-1]
     input_tokens = source_tokens + [GO] + target_tokens

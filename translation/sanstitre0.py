@@ -195,8 +195,8 @@ for epoch in range(1):  # again, normally you would NOT do 300 epochs, it is toy
                 current_loss=0.
 
 
-
-np.save(all_losses,'all_losses')
+print("finito")
+np.save('result/losses_1',all_losses)
 
 # print(model(X_val[0]))
 # print(Y_val[0])

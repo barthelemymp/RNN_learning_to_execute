@@ -57,7 +57,7 @@ config ={
         'vocab_size': vocab_size,
         'num_layers': 1,
         'embsize': 32,
-        'dim_recurrent': 10,
+        'dim_recurrent': 256,
         'num_layers': 2,
         'batch_size':batch_size
     }
@@ -147,7 +147,7 @@ all_losses=[]
 
 idx=np.arange(X_train.shape[0])
 
-for epoch in range(5):  # again, normally you would NOT do 300 epochs, it is toy data
+for epoch in range(2):  # again, normally you would NOT do 300 epochs, it is toy data
     np.random.shuffle(idx)
     X_train=X_train[idx]
     Y_train=Y_train[idx]
@@ -172,10 +172,13 @@ for epoch in range(5):  # again, normally you would NOT do 300 epochs, it is toy
 
         # Step 3. Run our forward pass.
         batch_pred = model(batch_x)
+        mask = batch_pred == 0
+        mask = torch.tensor(mask)
 
         # Step 4. Compute the loss, gradients, and update the parameters by
         #  calling optimizer.step()
         loss = loss_function(batch_pred, batch_y)
+        print(loss)
         loss.backward()
         optimizer.step()
 

@@ -73,6 +73,14 @@ config ={
 #         'num_layers_int':torch.IntTensor(1)
 #     }
 
+def masking(dataset):
+    max_len = dataset.shape[1]
+    masks = []
+    for data in dataset:
+        m = np.zeros(max_len)
+        m[data!=0]=1
+        masks.append(m)
+    return (torch.tensor(np.array(masks)))
 
 class Encoder1(nn.Module):
 
@@ -167,6 +175,7 @@ for epoch in range(5):  # again, normally you would NOT do 300 epochs, it is toy
         # Tensors of word indices.
 
         batch_x=X_train[current_batch:current_batch+batch_size]
+        #mask = masking(batch_x)
         batch_y=torch.tensor(Y_train[current_batch:current_batch+batch_size],dtype=torch.int64)
         current_batch+=batch_size
 
@@ -175,7 +184,11 @@ for epoch in range(5):  # again, normally you would NOT do 300 epochs, it is toy
 
         # Step 4. Compute the loss, gradients, and update the parameters by
         #  calling optimizer.step()
+        # Use the mask variable to avoid the effect of padding on loss
+        # function calculations
         loss = loss_function(batch_pred, batch_y)
+        print(loss)
+        #loss = (loss * mask.shape[1] / torch.sum(mask,dim=1))
         loss.backward()
         optimizer.step()
 

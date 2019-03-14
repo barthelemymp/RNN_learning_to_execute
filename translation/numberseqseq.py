@@ -61,14 +61,6 @@ EOS_token = 2
 
 
 
-
-
-
-
-
-
-
-
 use_gpu = torch.cuda.is_available()
 def gpu(tensor, gpu=use_gpu):
     if gpu:
@@ -87,20 +79,6 @@ config ={
         'dim_recurrent': 256,
         'batch_size':batch_size
     }
-
-
-# config_tensor = {
-#         'dropout': torch.tensor(0.2),
-#         'vocab_size': torch.tensor(vocab_size),
-#         'num_layers': torch.tensor(1),
-#         'embsize': torch.tensor(32),
-#         'dim_recurrent':torch.tensor(50),
-#         'num_layers':torch.FloatTensor(1),
-#         'num_layers_int':torch.IntTensor(1)
-#     }
-
-
-
 
 
 class EncoderRNN(nn.Module):
@@ -254,31 +232,69 @@ def trainIters(encoder, decoder, n_iters, print_every=10, plot_every=100, learni
             plot_losses.append(plot_loss_avg)
             plot_loss_total = 0
 
-    showPlot(plot_losses)
-    
-    
+    #showPlot(plot_losses)
+   
+
+x_test=torch.tensor(pairs[0][0])
+y_test=torch.tensor(pairs[0][1])
+
+
+def decode(input_tensor,encoder,decoder):
+
+    max_length=MAX_LENGTH
+    input_length = input_tensor.size(0)
+    target_length = MAX_LENGTH
+
+    encoder_hidden = encoder.initHidden()
+    encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
+
+    for ei in range(input_length):
+        encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
+        encoder_outputs[ei] = encoder_output[0, 0]
+
+    decoder_input = torch.tensor([[GO_token]], device=device)
+    decoder_hidden = encoder_hidden
+
+    solu=torch.zeros(max_length)
+
+    for di in range(target_length):
+        decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
+        topv, topi = decoder_output.topk(1)
+        decoder_input = topi.squeeze().detach()
+        print(decoder_input)
+        solu[di]=decoder_input
+
+
+    return solu
 
 
 
-import matplotlib.pyplot as plt
-plt.switch_backend('agg')
-import matplotlib.ticker as ticker
-import numpy as np
 
 
-def showPlot(points):
-    plt.figure()
-    fig, ax = plt.subplots()
-    # this locator puts ticks at regular intervals
-    loc = ticker.MultipleLocator(base=0.2)
-    ax.yaxis.set_major_locator(loc)
-    plt.plot(points)
+#import matplotlib.pyplot as plt
+#plt.switch_backend('agg')
+#import matplotlib.ticker as ticker
+#import numpy as np
+
+
+#def showPlot(points):
+#    plt.figure()
+#    fig, ax = plt.subplots()
+#    # this locator puts ticks at regular intervals
+#    loc = ticker.MultipleLocator(base=0.2)
+#    ax.yaxis.set_major_locator(loc)
+#    plt.plot(points)
 
 hidden_size = 256
 encoder1 = EncoderRNN(config['vocab_size'], hidden_size).to(device)
 attn_decoder1 = AttnDecoderRNN(hidden_size, config['vocab_size'], dropout_p=0.1).to(device)
 
-trainIters(encoder1, attn_decoder1, 75000, print_every=10)
+trainIters(encoder1, attn_decoder1, n_iters=2000, print_every=10)
+
+print(decode(x_test,encoder1,attn_decoder1))
+
+print(y_test)
+
 
 #evaluateRandomly(encoder1, attn_decoder1)
 

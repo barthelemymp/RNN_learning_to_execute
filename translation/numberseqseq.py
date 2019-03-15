@@ -32,6 +32,7 @@ num_val=np.load('data_npy/num_val.npy')
 fr_test=np.load('data_npy/fr_test.npy')
 num_test=np.load('data_npy/num_test.npy')
 
+
 # Create the shared dictionary
 tokenized_fr_train = [tokenize(s, word_level=True) for s in fr_train]
 tokenized_num_train = [tokenize(s, word_level=False) for s in num_train]
@@ -42,6 +43,7 @@ X_train, Y_train = vectorize_corpus(fr_train, num_train, shared_vocab,word_level
 X_val, Y_val = vectorize_corpus(fr_val, num_val, shared_vocab,word_level_target=False)
 X_test, Y_test = vectorize_corpus(fr_test, num_test, shared_vocab,word_level_target=False)
 
+print(X_train.shape)
 
 #############OTHER DATA PREP
 
@@ -201,42 +203,45 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
 
 
 
-
-def trainIters(encoder, decoder, n_iters, print_every=10, plot_every=100, learning_rate=0.01):
+def trainIters(encoder, decoder, n_iters,epochs=5, print_every=100, plot_every=100, learning_rate=0.01):
     start = time.time()
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
+
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
     training_pairs = [random.choice(pairs)for i in range(n_iters)]
     criterion = nn.NLLLoss()
 
-    for iter in range(1, n_iters + 1):
-        training_pair = training_pairs[iter - 1]
-        input_tensor = torch.tensor(training_pair[0])
-        target_tensor = torch.tensor(training_pair[1])
+    for epoch in range(0,epochs):
 
-        loss = train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion)
-        print_loss_total += loss
-        plot_loss_total += loss
+        for iter in range(1, n_iters + 1):
+            training_pair = training_pairs[iter - 1]
+            input_tensor = torch.tensor(training_pair[0])
+            target_tensor = torch.tensor(training_pair[1])
 
-        if iter % print_every == 0:
-            print_loss_avg = print_loss_total / print_every
-            print_loss_total = 0
-            print( print_loss_avg)
+            loss = train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion)
+            print_loss_total += loss
+            plot_loss_total += loss
 
-        if iter % plot_every == 0:
-            plot_loss_avg = plot_loss_total / plot_every
-            plot_losses.append(plot_loss_avg)
-            plot_loss_total = 0
+            if iter % print_every == 0:
+                print_loss_avg = print_loss_total / print_every
+                print_loss_total = 0
+                print("epoch :" + str(epoch) + " iter : " + str(iter))
+                print( print_loss_avg)
+
+            if iter % plot_every == 0:
+                plot_loss_avg = plot_loss_total / plot_every
+                plot_losses.append(plot_loss_avg)
+                plot_loss_total = 0
+
+        torch.save(encoder, 'first_enco.pt')
+        torch.save(decoder, 'first_deco.pt')
 
     #showPlot(plot_losses)
    
-
-x_test=torch.tensor(pairs[0][0])
-y_test=torch.tensor(pairs[0][1])
 
 
 def decode(input_tensor,encoder,decoder):
@@ -289,11 +294,13 @@ hidden_size = 256
 encoder1 = EncoderRNN(config['vocab_size'], hidden_size).to(device)
 attn_decoder1 = AttnDecoderRNN(hidden_size, config['vocab_size'], dropout_p=0.1).to(device)
 
-trainIters(encoder1, attn_decoder1, n_iters=2000, print_every=10)
+trainIters(encoder1, attn_decoder1, n_iters=20000,epochs=3, print_every=100)
 
-print(decode(x_test,encoder1,attn_decoder1))
-
-print(y_test)
+for i in range(10):
+    x_test=torch.tensor(pairs[i][0])
+    y_test=torch.tensor(pairs[i][1])
+    print(decode(x_test,encoder1,attn_decoder1))
+    print(y_test)
 
 
 #evaluateRandomly(encoder1, attn_decoder1)

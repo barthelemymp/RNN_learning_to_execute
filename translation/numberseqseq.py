@@ -225,11 +225,12 @@ def trainIters(encoder, decoder, n_iters,epochs=5, print_every=100, plot_every=1
                 print_loss_total = 0
                 print("epoch :" + str(epoch) + " iter : " + str(iter))
                 print( print_loss_avg)
-                all_losses+=[print_loss_avg]
+                
 
             if iter % plot_every == 0:
                 plot_loss_avg = plot_loss_total / plot_every
-                plot_loss_total = 0
+                plot_loss_total = 0.
+                all_losses+=[plot_loss_avg]
 
         loss_PATH="losses_epoch"+str(epoch)
         np.save(loss_PATH,np.array(all_losses))
@@ -294,7 +295,7 @@ hidden_size = 256
 encoder1 = EncoderRNN(config['vocab_size'], hidden_size).to(device)
 attn_decoder1 = AttnDecoderRNN(hidden_size, config['vocab_size'], dropout_p=0.1).to(device)
 
-trainIters(encoder1, attn_decoder1, n_iters=20000,epochs=10, print_every=10)
+trainIters(encoder1, attn_decoder1, n_iters=20000,epochs=10, print_every=1000,plot_every=100)
 
 
 

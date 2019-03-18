@@ -47,8 +47,6 @@ print(X_train.shape)
 
 #############OTHER DATA PREP
 
-
-
 #pairs = [[fr_train[i],num_train[i]] for i in range(num_train.shape[0])]
 
 pairs = [(torch.tensor(X_train[i], dtype=torch.long, device=device).view(-1, 1)
@@ -89,9 +87,7 @@ class EncoderRNN(nn.Module):
         self.hidden_size = hidden_size
         self.input_size = input_size
         self.param = [input_size,hidden_size]
-        print('avant def')
         self.embedding = nn.Embedding(input_size,hidden_size)#(self.input_size, self.hidden_size)
-        print('apres def')
         self.gru = nn.GRU(hidden_size, hidden_size)
 
     def forward(self, input, hidden):
@@ -128,10 +124,8 @@ class AttnDecoderRNN(nn.Module):
         embedded = self.embedding(input).view(1, 1, -1)
         embedded = self.dropout(embedded)
 
-        attn_weights = F.softmax(
-            self.attn(torch.cat((embedded[0], hidden[0]), 1)), dim=1)
-        attn_applied = torch.bmm(attn_weights.unsqueeze(0),
-                                 encoder_outputs.unsqueeze(0))
+        attn_weights = F.softmax(self.attn(torch.cat((embedded[0], hidden[0]), 1)), dim=1)
+        attn_applied = torch.bmm(attn_weights.unsqueeze(0),encoder_outputs.unsqueeze(0))
 
         output = torch.cat((embedded[0], attn_applied[0]), 1)
         output = self.attn_combine(output).unsqueeze(0)
@@ -204,10 +198,10 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
 
 
 def trainIters(encoder, decoder, n_iters,epochs=5, print_every=100, plot_every=100, learning_rate=0.01):
+    all_losses=[]
     start = time.time()
-    plot_losses = []
-    print_loss_total = 0  # Reset every print_every
-    plot_loss_total = 0  # Reset every plot_every
+    print_loss_total = 0.  # Reset every print_every
+    plot_loss_total = 0. # Reset every plot_every
 
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
@@ -231,14 +225,21 @@ def trainIters(encoder, decoder, n_iters,epochs=5, print_every=100, plot_every=1
                 print_loss_total = 0
                 print("epoch :" + str(epoch) + " iter : " + str(iter))
                 print( print_loss_avg)
+                
 
             if iter % plot_every == 0:
                 plot_loss_avg = plot_loss_total / plot_every
-                plot_losses.append(plot_loss_avg)
-                plot_loss_total = 0
+                plot_loss_total = 0.
+                all_losses+=[plot_loss_avg]
 
-        torch.save(encoder, 'first_enco.pt')
-        torch.save(decoder, 'first_deco.pt')
+        loss_PATH="losses_epoch"+str(epoch)
+        np.save(loss_PATH,np.array(all_losses))
+
+    enco_PATH="encoder_epoch"+str(epoch)
+    deco_PATH="decoder_epoch"+str(epoch)
+    torch.save(encoder,enco_PATH)
+    torch.save(encoder,deco_PATH)
+    np.save('all_losses',np.array(all_losses))
 
     #showPlot(plot_losses)
    
@@ -294,17 +295,7 @@ hidden_size = 256
 encoder1 = EncoderRNN(config['vocab_size'], hidden_size).to(device)
 attn_decoder1 = AttnDecoderRNN(hidden_size, config['vocab_size'], dropout_p=0.1).to(device)
 
-trainIters(encoder1, attn_decoder1, n_iters=20000,epochs=3, print_every=100)
-
-for i in range(10):
-    x_test=torch.tensor(pairs[i][0])
-    y_test=torch.tensor(pairs[i][1])
-    print(decode(x_test,encoder1,attn_decoder1))
-    print(y_test)
-
-
-#evaluateRandomly(encoder1, attn_decoder1)
-
+trainIters(encoder1, attn_decoder1, n_iters=20000,epochs=10, print_every=1000,plot_every=100)
 
 
 

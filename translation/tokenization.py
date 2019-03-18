@@ -375,3 +375,11 @@ def make_input_output(source_tokens, target_tokens, reverse_source=False):
     input_tokens = source_tokens + [GO] + target_tokens
     output_tokens = target_tokens + [EOS]
     return input_tokens, output_tokens
+
+def to_sentence(ids,rev_vocab):
+    res=""
+    for id in ids:
+        id=int(id)
+        if id>2:
+            res+=str(rev_vocab[id])
+    return res

@@ -43,7 +43,6 @@ X_train, Y_train = vectorize_corpus(fr_train, num_train, shared_vocab,word_level
 X_val, Y_val = vectorize_corpus(fr_val, num_val, shared_vocab,word_level_target=False)
 X_test, Y_test = vectorize_corpus(fr_test, num_test, shared_vocab,word_level_target=False)
 
-print(X_train.shape)
 
 #############OTHER DATA PREP
 
@@ -51,6 +50,9 @@ print(X_train.shape)
 
 pairs = [(torch.tensor(X_train[i], dtype=torch.long, device=device).view(-1, 1)
 ,torch.tensor(Y_train[i], dtype=torch.long, device=device).view(-1, 1)) for i in range(num_train.shape[0])]
+
+test_pairs=[(torch.tensor(X_test[i], dtype=torch.long, device=device).view(-1, 1)
+,torch.tensor(Y_test[i], dtype=torch.long, device=device).view(-1, 1)) for i in range(num_test.shape[0])]
 
 
 MAX_LENGTH = 20
@@ -142,6 +144,7 @@ class AttnDecoderRNN(nn.Module):
 
 
 
+
 teacher_forcing_ratio = 0.5
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
@@ -195,10 +198,49 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
 
     return loss.item() / target_length
 
+def evaluate(test_pair, encoder, decoder, criterion, max_length=MAX_LENGTH):
+    
+    input_tensor=test_pair[0]
+    target_tensor=test_pair[1]
+
+    input_length = input_tensor.size(0)
+    target_length = target_tensor.size(0)
+
+    with torch.no_grad():
+
+        encoder_hidden = encoder.initHidden()
+
+        encoder_outputs = torch.zeros(max_length, encoder.hidden_size)
+
+        loss2 = 0
+
+        for ei in range(input_length):
+            encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
+            encoder_outputs[ei] = encoder_output[0, 0]
+
+        decoder_input = torch.tensor([[GO_token]])
+
+        decoder_hidden = encoder_hidden
+
+        for di in range(target_length):
+            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            topv, topi = decoder_output.topk(1)
+            decoder_input = topi.squeeze().detach()
+
+            loss2 += criterion(decoder_output, target_tensor[di])
+
+            if decoder_input.item() == EOS_token:
+                break
+
+    return loss2.item() / target_length
 
 
-def trainIters(encoder, decoder, n_iters,epochs=5, print_every=100, plot_every=100, learning_rate=0.01):
+
+def trainIters(encoder, decoder, n_iters,epochs=5, print_every=100, plot_every=100, learning_rate=0.01,n_evaluate=1000):
+ 
     all_losses=[]
+    all_test_losses=[]
+
     start = time.time()
     print_loss_total = 0.  # Reset every print_every
     plot_loss_total = 0. # Reset every plot_every
@@ -225,24 +267,33 @@ def trainIters(encoder, decoder, n_iters,epochs=5, print_every=100, plot_every=1
                 print_loss_total = 0
                 print("epoch :" + str(epoch) + " iter : " + str(iter))
                 print( print_loss_avg)
-                
+
 
             if iter % plot_every == 0:
                 plot_loss_avg = plot_loss_total / plot_every
                 plot_loss_total = 0.
                 all_losses+=[plot_loss_avg]
 
+                test_loss=0.
+                for i in range(n_evaluate):
+                    test_loss+=evaluate(test_pair=test_pairs[i],encoder=encoder, decoder=decoder, criterion=criterion, max_length=MAX_LENGTH)
+                all_test_losses+=[test_loss/n_evaluate]
+
+
         loss_PATH="losses_epoch"+str(epoch)
+        loss_test_PATH="losses_test_epoch"+str(epoch)
         np.save(loss_PATH,np.array(all_losses))
+        np.save(loss_test_PATH,np.array(all_test_losses))
 
-    enco_PATH="encoder_epoch"+str(epoch)
-    deco_PATH="decoder_epoch"+str(epoch)
-    torch.save(encoder,enco_PATH)
-    torch.save(encoder,deco_PATH)
+        enco_PATH="encoder_epoch"+str(epoch)
+        deco_PATH="decoder_epoch"+str(epoch)
+        torch.save(encoder,enco_PATH)
+        torch.save(encoder,deco_PATH)
+
+    torch.save(encoder,"second_enco")
+    torch.save(encoder,"second_deco")       
     np.save('all_losses',np.array(all_losses))
-
-    #showPlot(plot_losses)
-   
+    np.save('all_test_losses',np.array(all_losses))
 
 
 def decode(input_tensor,encoder,decoder):
@@ -267,53 +318,17 @@ def decode(input_tensor,encoder,decoder):
         decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
         topv, topi = decoder_output.topk(1)
         decoder_input = topi.squeeze().detach()
-        print(decoder_input)
         solu[di]=decoder_input
 
 
     return solu
 
 
-
-
-
-#import matplotlib.pyplot as plt
-#plt.switch_backend('agg')
-#import matplotlib.ticker as ticker
-#import numpy as np
-
-
-#def showPlot(points):
-#    plt.figure()
-#    fig, ax = plt.subplots()
-#    # this locator puts ticks at regular intervals
-#    loc = ticker.MultipleLocator(base=0.2)
-#    ax.yaxis.set_major_locator(loc)
-#    plt.plot(points)
-
 hidden_size = 256
 encoder1 = EncoderRNN(config['vocab_size'], hidden_size).to(device)
 attn_decoder1 = AttnDecoderRNN(hidden_size, config['vocab_size'], dropout_p=0.1).to(device)
 
-trainIters(encoder1, attn_decoder1, n_iters=20000,epochs=10, print_every=1000,plot_every=100)
-
-
-
-
-
-
-#
-#x_val=X_train[0:batch_size]
-#y_val=Y_train[0:batch_size]
-#
-#x_pred=model(x_val)
-#
-#_,x_pred=torch.max(x_pred,dim=1)
-#
-#print(x_pred)
-#print(y_val)
-
-
+trainIters(encoder1, attn_decoder1, n_iters=20000,epochs=10, print_every=1000,plot_every=10)
 
 
 

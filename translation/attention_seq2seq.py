@@ -1,3 +1,12 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Mar 12 18:58:08 2019
+
+@author: barthelemy
+"""
+
+########## IMPORTATION ################
+
 from __future__ import print_function
 import random
 import torch
@@ -9,14 +18,15 @@ import numpy as np
 #import matplotlib.pyplot as plt
 
 import numpy as np
-from tokenization import tokenize
-from tokenization import build_vocabulary_token
-from tokenization import vectorize_corpus
+from utils import tokenize
+from utils import build_vocabulary_token
+from utils import vectorize_corpus
 import csv
 import time
 
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+########### PREPROCESSING ################
 
 fr_train=np.load('data_npy/fr_train.npy')
 num_train=np.load('data_npy/num_train.npy')
@@ -38,38 +48,21 @@ X_val, Y_val = vectorize_corpus(fr_val, num_val, shared_vocab,word_level_target=
 X_test, Y_test = vectorize_corpus(fr_test, num_test, shared_vocab,word_level_target=False)
 
 
-#############OTHER DATA PREP
+# Transform the numpy arrays into torch tensors
 
-#pairs = [[fr_train[i],num_train[i]] for i in range(num_train.shape[0])]
-
-pairs = [(torch.tensor(X_train[i], dtype=torch.long, device=device).view(-1, 1)
+train_pairs = [(torch.tensor(X_train[i], dtype=torch.long, device=device).view(-1, 1)
 ,torch.tensor(Y_train[i], dtype=torch.long, device=device).view(-1, 1)) for i in range(num_train.shape[0])]
 
-test_pairs=[(torch.tensor(X_test[i], dtype=torch.long, device=device).view(-1, 1)
-,torch.tensor(Y_test[i], dtype=torch.long, device=device).view(-1, 1)) for i in range(num_test.shape[0])]
-
-score_pairs = [(torch.tensor(X_val[i], dtype=torch.long, device=device).view(-1, 1)
+eval_pairs=[(torch.tensor(X_val[i], dtype=torch.long, device=device).view(-1, 1)
 ,torch.tensor(Y_val[i], dtype=torch.long, device=device).view(-1, 1)) for i in range(num_test.shape[0])]
 
+############# PARAMS ###############
 
 MAX_LENGTH = 20
-
-
 GO_token = 1
 EOS_token = 2
-
-
-
-use_gpu = torch.cuda.is_available()
-def gpu(tensor, gpu=use_gpu):
-    if gpu:
-        return tensor.cuda()
-    else:
-        return tensor
-
 vocab_size = len(shared_vocab)
 batch_size=32
-
 config ={
         'dropout': 0.2,
         'vocab_size': vocab_size,
@@ -78,6 +71,18 @@ config ={
         'dim_recurrent': 256,
         'batch_size':batch_size
     }
+
+
+use_gpu = torch.cuda.is_available()
+
+def gpu(tensor, gpu=use_gpu):
+    if gpu:
+        return tensor.cuda()
+    else:
+        return tensor
+
+##################### NETWORK #######################
+
 
 
 class EncoderRNN(nn.Module):
@@ -98,11 +103,7 @@ class EncoderRNN(nn.Module):
         return output, hidden
 
     def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=device)
-    
-    
-    
-    
+        return torch.zeros(1, 1, self.hidden_size, device=device)  
     
 class AttnDecoderRNN(nn.Module):
     def __init__(self, hidden_size, output_size, dropout_p=0.1, max_length=MAX_LENGTH):
@@ -139,15 +140,14 @@ class AttnDecoderRNN(nn.Module):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
 
-class Trainer{}
+
 
 
 
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
-    
-    teacher_forcing_ratio = 0.5
 
+    teacher_forcing_ratio = 0.5
     encoder_hidden = encoder.initHidden()
 
     encoder_optimizer.zero_grad()
@@ -197,6 +197,44 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     decoder_optimizer.step()
 
     return loss.item() / target_length
+
+def evaluate(test_pair, encoder, decoder, criterion, max_length=MAX_LENGTH):
+    
+    input_tensor=test_pair[0]
+    target_tensor=test_pair[1]
+
+    input_length = input_tensor.size(0)
+    target_length = target_tensor.size(0)
+
+    with torch.no_grad():
+
+        encoder_hidden = encoder.initHidden()
+
+        encoder_outputs = torch.zeros(max_length, encoder.hidden_size)
+
+        loss2 = 0
+
+        for ei in range(input_length):
+            encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
+            encoder_outputs[ei] = encoder_output[0, 0]
+
+        decoder_input = torch.tensor([[GO_token]])
+
+        decoder_hidden = encoder_hidden
+
+        for di in range(target_length):
+            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            topv, topi = decoder_output.topk(1)
+            decoder_input = topi.squeeze().detach()
+
+            loss2 += criterion(decoder_output, target_tensor[di])
+
+            if decoder_input.item() == EOS_token:
+                break
+
+    return loss2.item() / target_length
+
+
 
 def trainIters(encoder, decoder, n_iters,epochs=5, print_every=100, plot_every=100, learning_rate=0.01,n_evaluate=1000):
  

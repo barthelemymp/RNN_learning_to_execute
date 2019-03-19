@@ -65,15 +65,20 @@ def decode(input_tensor,encoder,decoder):
 
     return solu
 
+score=0
 
-for i in range(115,125):
+for i in range(1000):
     x_test=torch.tensor(pairs[i][0])
     y_test=torch.tensor(pairs[i][1])
     x_pred=decode(x_test,encoder,decoder)
     x_pred=x_pred.numpy()
-    print("pred : ")
-    print(to_sentence(x_pred,rev_shared_vocab))
-    print("rep : ")
-    print(num_val[i])
+    num_pred=to_sentence(x_pred,rev_shared_vocab)
+    if int(num_pred)==int(num_val[i]):
+    	score+=1
+    print(int(num_pred),int(num_val[i]))
+    print(int(num_pred)-int(num_val[i]))
+
+print(score)
+print(score/1000)
 
 

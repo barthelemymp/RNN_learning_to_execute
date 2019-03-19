@@ -62,14 +62,13 @@ MAX_LENGTH = 20
 GO_token = 1
 EOS_token = 2
 vocab_size = len(shared_vocab)
-batch_size=32
 config ={
         'dropout': 0.2,
         'vocab_size': vocab_size,
         'num_layers': 1,
         'embsize': 32,
         'dim_recurrent': 256,
-        'batch_size':batch_size
+        'batch_size':32
     }
 
 

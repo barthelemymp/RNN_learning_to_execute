@@ -1,14 +1,28 @@
-
-import numpy as np
-from tokenization import tokenize
-from tokenization import build_vocabulary_token
-from tokenization import vectorize_corpus
-from tokenization import to_sentence
-import csv
 import torch
 from numberseqseq import EncoderRNN
 from numberseqseq import AttnDecoderRNN
 from numberseqseq import model
+
+import numpy as np
+from utils import tokenize
+from utils import build_vocabulary_token
+from utils import vectorize_corpus
+from utils import to_sentence
+
+config ={
+        'dropout': 0.2,
+        'vocab_size': 40,
+        'num_layers': 1,
+        'embsize': 32,
+        'dim_recurrent': 256,
+        'batch_size':32,
+        'hidden_size': 256,
+        'max_length': 20
+    }
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 # Load the useful arrays
 fr_train=np.load('data_npy/fr_train.npy')
@@ -33,5 +47,17 @@ X_test, Y_test = vectorize_corpus(fr_test, num_test, shared_vocab,word_level_tar
 pairs = [(torch.tensor(X_val[i], dtype=torch.long).view(-1, 1)
 ,torch.tensor(Y_val[i], dtype=torch.long).view(-1, 1)) for i in range(num_val.shape[0])]
 
+encoder=torch.load('saved_models/first_enco.pt')
+decoder=torch.load('saved_models/first_deco.pt')
+
+MAX_LENGTH=20
+GO_token = 1
+EOS_token = 2
 
 
+enco=torch.load('saved_models/first_enco.pt')
+deco=torch.load('saved_models/first_deco.pt')
+
+model = model(encoder=enco, decoder=deco, config=config)
+print(model.decode((torch.tensor(X_test[0], dtype=torch.long, device=device).view(-1, 1))))
+print(to_sentence(Y_test[0],rev_shared_vocab))

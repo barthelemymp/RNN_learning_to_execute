@@ -47,8 +47,10 @@ X_val, Y_val = vectorize_corpus(fr_val, num_val, shared_vocab,word_level_target=
 X_test, Y_test = vectorize_corpus(fr_test, num_test, shared_vocab,word_level_target=False)
 
 
+print(shared_vocab)
+
 class LSTM(nn.Module):
-    def __init__(self, max_len = 20, nb_lstm_units=10, nb_lstm_layers=2, embedding_dim=32, batch_size=4, vocab=shared_vocab, dropout=0.2, gpu=False):
+    def __init__(self, max_len = 20, nb_lstm_units=10, nb_lstm_layers=2, embedding_dim=32, batch_size=4, vocab=shared_vocab, dropout=0.2, gpu=True):
         super(LSTM, self).__init__()
         self.vocab = vocab
         self.tags = vocab
@@ -73,7 +75,7 @@ class LSTM(nn.Module):
 
         # whenever the embedding sees the padding index it'll make the whole vector zeros
         padding_idx = self.vocab['_PAD']
-        
+
         self.word_embedding = nn.Embedding(
             num_embeddings=nb_vocab_words,
             embedding_dim=self.embedding_dim,
@@ -145,7 +147,6 @@ class LSTM(nn.Module):
         # 4. Create softmax activations bc we're doing classification
         # Dim transformation: (batch_size * seq_len, nb_lstm_units) -> (batch_size, seq_len, nb_tags)
         X = F.log_softmax(X, dim=2)
-        
         # I like to reshape for mental sanity so we're back to (batch_size, seq_len, nb_tags)
         X=X.transpose(0, 1)
         X = X.view(batch_size, seq_len, self.nb_tags) #batch_size, seq_len, nb_tags
@@ -160,25 +161,27 @@ class LSTM(nn.Module):
         # and calculate the loss on that.
 
         # flatten all the labels
+        Y = Y.contiguous()
         Y = Y.view(-1)
-        print(Y)
-
         # flatten all predictions
+        Y_hat = Y_hat.contiguous() #batch_size, seq_len, nb_tags
+        # Dim transformation: (batch_size, seq_len, nb_tags) -> (batch_size * seq_len, nb_tags) 
+        print(Y_hat)
+        print(Y_hat.shape)
         Y_hat = Y_hat.view(-1, self.nb_tags)
         print(Y_hat)
+        print(Y_hat.shape)
+        #Y_hat = [mask,Y_hat]
         # create a mask by filtering out all tokens that ARE NOT the padding token
         tag_pad_token = self.tags['_PAD']
         mask = (Y > tag_pad_token).float()
-
         # count how many tokens we have
-        nb_tokens = int(torch.sum(mask).data[0])
-
+        nb_tokens = int(torch.sum(mask))
+        #Y_pred = 
         # pick the values for the label and zero out the rest with the mask
         Y_hat = Y_hat[range(Y_hat.shape[0]), Y] * mask
-
         # compute cross entropy loss which ignores all <PAD> tokens
         ce_loss = -torch.sum(Y_hat) / nb_tokens
-
         return ce_loss
 
 
@@ -202,70 +205,77 @@ all_losses=[]
 idx=np.arange(X_train.shape[0])
 
 for epoch in range(5):  # again, normally you would NOT do 300 epochs, it is toy data
-    np.random.shuffle(idx)
-    X_train=X_train[idx]
-    Y_train=Y_train[idx]
-
-    current_batch=0
-    for i in range(len(X_train)//batch_size):
-        # Step 1. Remember that Pytorch accumulates gradients.
-        # We need to clear them out before each instance
-        model.zero_grad()
-
-
-        # Also, we need to clear out the hidden state of the LSTM,
-        # detaching it from its history on the last instance.
-        #model.hidden = model.init_hidden()
-
-        # Step 2. Get our inputs ready for the network, that is, turn them into
-        # Tensors of word indices.
-
-        batch_x=X_train[current_batch:current_batch+batch_size]
-        #mask = masking(batch_x)
-        batch_y=torch.tensor(Y_train[current_batch:current_batch+batch_size],dtype=torch.int64)
-        current_batch+=batch_size
-
-        # Step 3. Run our forward pass.
-        batch_pred = model(batch_x)
-
-        # Step 4. Compute the loss, gradients, and update the parameters by
-        #  calling optimizer.step()
-        # Use the mask variable to avoid the effect of padding on loss
-        # function calculations
-        loss = model.loss(batch_pred, batch_y)
-        print(loss)
-        #loss = (loss * mask.shape[1] / torch.sum(mask,dim=1))
-        loss.backward()
-        optimizer.step()
-
-        current_loss += loss.item()
+     np.random.shuffle(idx)
+     X_train=X_train[idx]
+     Y_train=Y_train[idx]
+     print("je suis la")
+     current_batch=0
+     for i in range(len(X_train)//batch_size):
+         # Step 1. Remember that Pytorch accumulates gradients.
+         # We need to clear them out before each instance
+         model.zero_grad()
 
 
-        if i % 100 == 0 :
-            with torch.no_grad():
-                model.train(False)
-                #batch_pred, batch_y = test_eval()
-                #f1 = f1_score(batch_y,batch_pred, average="weighted")
-                #precision = precision_score(batch_y,batch_pred,average="weighted")
-                all_losses.append(current_loss/100)
-                print(loss.item(),'\titeration:', i, '\tepoch', epoch)
-                model.train(True)
-                current_loss=0.
+         # Also, we need to clear out the hidden state of the LSTM,
+         # detaching it from its history on the last instance.
+         #model.hidden = model.init_hidden()
+
+         # Step 2. Get our inputs ready for the network, that is, turn them into
+         # Tensors of word indices.
+
+         batch_x=X_train[current_batch:current_batch+batch_size]
+         #mask = masking(batch_x)
+         batch_y=torch.tensor(Y_train[current_batch:current_batch+batch_size],dtype=torch.int64)
+         current_batch+=batch_size
+
+         # Step 3. Run our forward pass.
+         batch_pred = model(batch_x)
+
+         # Step 4. Compute the loss, gradients, and update the parameters by
+         #  calling optimizer.step()
+         # Use the mask variable to avoid the effect of padding on loss
+         # function calculations
+         loss = model.loss(batch_pred, batch_y)
+         #loss = (loss * mask.shape[1] / torch.sum(mask,dim=1))
+         loss.backward()
+         optimizer.step()
+
+         current_loss += loss.item()
 
 
+         if i % 100 == 0 :
+             with torch.no_grad():
+                 model.train(False)
+                 #batch_pred, batch_y = test_eval()
+                 #f1 = f1_score(batch_y,batch_pred, average="weighted")
+                 #precision = precision_score(batch_y,batch_pred,average="weighted")
+                 all_losses.append(current_loss/100)
+                 print(loss.item(),'\titeration:', i, '\tepoch', epoch)
+                 model.train(True)
+                 current_loss=0.
+
+
+np.save('result/losses_1.npy', all_losses)
+
+torch.save(model.state_dict(), 'LSTM_mask_trained.pt')
 
 x_val=X_train[0:batch_size]
 y_val=Y_train[0:batch_size]
-print(x_val.shape[0])
+print("y_val", y_val)
 y_pred=model(x_val)
-
-_,y_pred=torch.max(x_pred,dim=1)
-
+#batch_size, tag, seq_len
+y_pred = y_pred.transpose(1,2)
 print(y_pred)
-print(y_val)
+print(y_pred.shape)
+_,y_pred=torch.max(y_pred,dim=1)
+print(y_pred)
+print(y_pred.shape)
 
-
-
+print("y_pred", y_pred)
+print("y_val", y_val)
+y_pred = torch.tensor(y_pred,dtype=torch.int64)
+print(y_pred)
+print(y_pred.shape)
 loss = model.loss(y_pred, y_val)
-print(loss)
+print("loss",loss)
 

@@ -1,3 +1,10 @@
+'''
+In this file, we build our network with three classes :
+    - the Encoder (Embedding + GRU)
+    - the Decoder (Embedding + Attention + GRU)
+    - the entire model that gathers the encoder and decoder and define useful functions for training and testing'''
+
+
 from __future__ import print_function
 import random
 import torch
@@ -20,17 +27,6 @@ GO_token = 1
 EOS_token = 2
 
 
-
-use_gpu = torch.cuda.is_available()
-def gpu(tensor, gpu=use_gpu):
-    if gpu:
-        return tensor.cuda()
-    else:
-        return tensor
-
-# E
-
-
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size):
         super(EncoderRNN, self).__init__()
@@ -50,11 +46,7 @@ class EncoderRNN(nn.Module):
 
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size, device=device)
-    
-    
-    
-    
-    
+     
 class AttnDecoderRNN(nn.Module):
     def __init__(self, hidden_size, output_size, dropout_p=0.1, max_length=20):
         super(AttnDecoderRNN, self).__init__()
@@ -88,8 +80,6 @@ class AttnDecoderRNN(nn.Module):
 
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size, device=device)
-
-
 
 class model(nn.Module):
     def __init__(self,encoder,decoder, config,  criterion = nn.NLLLoss()):
@@ -230,9 +220,5 @@ class model(nn.Module):
 
 
         return solu
-        
-    
-    
-    
     
     

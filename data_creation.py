@@ -1,8 +1,8 @@
-from tokenization import generate_translations
-from tokenization import tokenize
+from utils import generate_translations
+from utils import tokenize
 from sklearn.model_selection import train_test_split
-from tokenization import build_vocabulary
-from tokenization import build_vocabulary_token
+from utils import build_vocabulary
+from utils import build_vocabulary_token
 import numpy as np
 import csv
 

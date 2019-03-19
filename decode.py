@@ -1,7 +1,9 @@
+''' Decodes a sentence and transform it into numbers  '''
+
 import torch
-from numberseqseq import EncoderRNN
-from numberseqseq import AttnDecoderRNN
-from numberseqseq import model
+from model import EncoderRNN
+from model import AttnDecoderRNN
+from model import model
 
 import numpy as np
 from utils import tokenize

@@ -1,3 +1,4 @@
+
 import numpy as np
 from tokenization import tokenize
 from tokenization import build_vocabulary_token
@@ -7,6 +8,7 @@ import csv
 import torch
 from numberseqseq import EncoderRNN
 from numberseqseq import AttnDecoderRNN
+from numberseqseq import model
 
 # Load the useful arrays
 fr_train=np.load('data_npy/fr_train.npy')
@@ -31,49 +33,5 @@ X_test, Y_test = vectorize_corpus(fr_test, num_test, shared_vocab,word_level_tar
 pairs = [(torch.tensor(X_val[i], dtype=torch.long).view(-1, 1)
 ,torch.tensor(Y_val[i], dtype=torch.long).view(-1, 1)) for i in range(num_val.shape[0])]
 
-encoder=torch.load('saved_models/first_enco.pt')
-decoder=torch.load('saved_models/first_deco.pt')
-
-MAX_LENGTH=20
-GO_token = 1
-EOS_token = 2
-
-def decode(input_tensor,encoder,decoder):
-
-    max_length=MAX_LENGTH
-    input_length = input_tensor.size(0)
-    target_length = MAX_LENGTH
-
-    encoder_hidden = encoder.initHidden()
-    encoder_outputs = torch.zeros(max_length, encoder.hidden_size)
-
-    for ei in range(input_length):
-        encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
-        encoder_outputs[ei] = encoder_output[0, 0]
-
-    decoder_input = torch.tensor([[GO_token]])
-    decoder_hidden = encoder_hidden
-
-    solu=torch.zeros(max_length)
-
-    for di in range(target_length):
-        decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
-        topv, topi = decoder_output.topk(1)
-        decoder_input = topi.squeeze().detach()
-        solu[di]=decoder_input
-
-
-    return solu
-
-
-for i in range(115,125):
-    x_test=torch.tensor(pairs[i][0])
-    y_test=torch.tensor(pairs[i][1])
-    x_pred=decode(x_test,encoder,decoder)
-    x_pred=x_pred.numpy()
-    print("pred : ")
-    print(to_sentence(x_pred,rev_shared_vocab))
-    print("rep : ")
-    print(num_val[i])
 
 

@@ -1,11 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Mar 12 18:58:08 2019
-
-@author: barthelemy
-"""
-
-
 from __future__ import print_function
 import random
 import torch
@@ -22,6 +14,8 @@ from tokenization import build_vocabulary_token
 from tokenization import vectorize_corpus
 import csv
 import time
+
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 fr_train=np.load('data_npy/fr_train.npy')
@@ -53,6 +47,9 @@ pairs = [(torch.tensor(X_train[i], dtype=torch.long, device=device).view(-1, 1)
 
 test_pairs=[(torch.tensor(X_test[i], dtype=torch.long, device=device).view(-1, 1)
 ,torch.tensor(Y_test[i], dtype=torch.long, device=device).view(-1, 1)) for i in range(num_test.shape[0])]
+
+score_pairs = [(torch.tensor(X_val[i], dtype=torch.long, device=device).view(-1, 1)
+,torch.tensor(Y_val[i], dtype=torch.long, device=device).view(-1, 1)) for i in range(num_test.shape[0])]
 
 
 MAX_LENGTH = 20
@@ -145,9 +142,12 @@ class AttnDecoderRNN(nn.Module):
 
 
 
-teacher_forcing_ratio = 0.5
+
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
+    
+    teacher_forcing_ratio = 0.5
+
     encoder_hidden = encoder.initHidden()
 
     encoder_optimizer.zero_grad()
@@ -197,44 +197,6 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     decoder_optimizer.step()
 
     return loss.item() / target_length
-
-def evaluate(test_pair, encoder, decoder, criterion, max_length=MAX_LENGTH):
-    
-    input_tensor=test_pair[0]
-    target_tensor=test_pair[1]
-
-    input_length = input_tensor.size(0)
-    target_length = target_tensor.size(0)
-
-    with torch.no_grad():
-
-        encoder_hidden = encoder.initHidden()
-
-        encoder_outputs = torch.zeros(max_length, encoder.hidden_size)
-
-        loss2 = 0
-
-        for ei in range(input_length):
-            encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
-            encoder_outputs[ei] = encoder_output[0, 0]
-
-        decoder_input = torch.tensor([[GO_token]])
-
-        decoder_hidden = encoder_hidden
-
-        for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
-            topv, topi = decoder_output.topk(1)
-            decoder_input = topi.squeeze().detach()
-
-            loss2 += criterion(decoder_output, target_tensor[di])
-
-            if decoder_input.item() == EOS_token:
-                break
-
-    return loss2.item() / target_length
-
-
 
 def trainIters(encoder, decoder, n_iters,epochs=5, print_every=100, plot_every=100, learning_rate=0.01,n_evaluate=1000):
  
@@ -325,11 +287,10 @@ def decode(input_tensor,encoder,decoder):
 
 
 hidden_size = 256
-encoder1 = EncoderRNN(config['vocab_size'], hidden_size).to(device)
-attn_decoder1 = AttnDecoderRNN(hidden_size, config['vocab_size'], dropout_p=0.1).to(device)
+#encoder1 = EncoderRNN(config['vocab_size'], hidden_size).to(device)
+#attn_decoder1 = AttnDecoderRNN(hidden_size, config['vocab_size'], dropout_p=0.1).to(device)
 
-trainIters(encoder1, attn_decoder1, n_iters=20000,epochs=10, print_every=100,plot_every=10)
-
+#trainIters(encoder1, attn_decoder1, n_iters=20000,epochs=10, print_every=100,plot_every=10)
 
     
     

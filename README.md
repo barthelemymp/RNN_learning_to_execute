@@ -1,5 +1,6 @@
 # RNN_learning_to_execute
 
+<<<<<<< HEAD
 
 ##################################################################################################
 ###                                        INTRODUCTION                                       ####
@@ -35,3 +36,8 @@ code to make prediction
 
 
 
+=======
+Problem : building a translation model from french phrases describing numbers to the corresponding numeric representation (base 10).
+
+1. tokenization.py
+>>>>>>> 594f218982cc1f28b0930cd30ee5b8e2a410c7d8

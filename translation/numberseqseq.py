@@ -328,7 +328,7 @@ hidden_size = 256
 encoder1 = EncoderRNN(config['vocab_size'], hidden_size).to(device)
 attn_decoder1 = AttnDecoderRNN(hidden_size, config['vocab_size'], dropout_p=0.1).to(device)
 
-trainIters(encoder1, attn_decoder1, n_iters=20000,epochs=10, print_every=1000,plot_every=10)
+trainIters(encoder1, attn_decoder1, n_iters=20000,epochs=10, print_every=100,plot_every=10)
 
 
 

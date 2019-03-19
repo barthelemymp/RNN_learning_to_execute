@@ -9,50 +9,11 @@ import numpy as np
 #import matplotlib.pyplot as plt
 
 import numpy as np
-from tokenization import tokenize
-from tokenization import build_vocabulary_token
-from tokenization import vectorize_corpus
 import csv
 import time
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-fr_train=np.load('data_npy/fr_train.npy')
-num_train=np.load('data_npy/num_train.npy')
-rev_shared_vocab=np.load('data_npy/rev_shared_vocab.npy')
-fr_val=np.load('data_npy/fr_val.npy')
-num_val=np.load('data_npy/num_val.npy')
-fr_test=np.load('data_npy/fr_test.npy')
-num_test=np.load('data_npy/num_test.npy')
-
-
-# Create the shared dictionary
-tokenized_fr_train = [tokenize(s, word_level=True) for s in fr_train]
-tokenized_num_train = [tokenize(s, word_level=False) for s in num_train]
-shared_vocab, rev_shared_vocab = build_vocabulary_token(tokenized_fr_train+tokenized_num_train)
-
-# Create the training, evaluating and testing sets
-X_train, Y_train = vectorize_corpus(fr_train, num_train, shared_vocab,word_level_target=False)
-X_val, Y_val = vectorize_corpus(fr_val, num_val, shared_vocab,word_level_target=False)
-X_test, Y_test = vectorize_corpus(fr_test, num_test, shared_vocab,word_level_target=False)
-
-
-#############OTHER DATA PREP
-
-#pairs = [[fr_train[i],num_train[i]] for i in range(num_train.shape[0])]
-
-pairs = [(torch.tensor(X_train[i], dtype=torch.long, device=device).view(-1, 1)
-,torch.tensor(Y_train[i], dtype=torch.long, device=device).view(-1, 1)) for i in range(num_train.shape[0])]
-
-test_pairs=[(torch.tensor(X_test[i], dtype=torch.long, device=device).view(-1, 1)
-,torch.tensor(Y_test[i], dtype=torch.long, device=device).view(-1, 1)) for i in range(num_test.shape[0])]
-
-score_pairs = [(torch.tensor(X_val[i], dtype=torch.long, device=device).view(-1, 1)
-,torch.tensor(Y_val[i], dtype=torch.long, device=device).view(-1, 1)) for i in range(num_test.shape[0])]
-
-
-MAX_LENGTH = 20
 
 
 GO_token = 1
@@ -67,19 +28,7 @@ def gpu(tensor, gpu=use_gpu):
     else:
         return tensor
 
-vocab_size = len(shared_vocab)
-batch_size=32
-
-config ={
-        'dropout': 0.2,
-        'vocab_size': vocab_size,
-        'num_layers': 1,
-        'embsize': 32,
-        'dim_recurrent': 256,
-        'batch_size':batch_size,
-        'hidden_size': 256,
-        'max_length': 20
-    }
+# E
 
 
 class EncoderRNN(nn.Module):
@@ -107,7 +56,7 @@ class EncoderRNN(nn.Module):
     
     
 class AttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, dropout_p=0.1, max_length=MAX_LENGTH):
+    def __init__(self, hidden_size, output_size, dropout_p=0.1, max_length=20):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
@@ -143,11 +92,10 @@ class AttnDecoderRNN(nn.Module):
 
 
 class model(nn.Module):
-    def __init__(self,encoder,decoder, config,  criterion = nn.NLLLoss(),train_pairs = pairs):
+    def __init__(self,encoder,decoder, config,  criterion = nn.NLLLoss()):
         super(model, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
-        self.train_pairs = train_pairs
         self.decoder_optimizer = optim.SGD(self.decoder.parameters(), lr=0.01)
         self.encoder_optimizer = optim.SGD(self.encoder.parameters(), lr=0.01)
         self.criterion = criterion
@@ -158,15 +106,15 @@ class model(nn.Module):
     
         teacher_forcing_ratio = 0.5
 
-        encoder_hidden = encoder.initHidden()
+        encoder_hidden = self.encoder.initHidden()
 
-        encoder_optimizer.zero_grad()
-        decoder_optimizer.zero_grad()
+        self.encoder_optimizer.zero_grad()
+        self.decoder_optimizer.zero_grad()
 
         input_length = input_tensor.size(0)
         target_length = target_tensor.size(0)
 
-        encoder_outputs = torch.zeros(self.config['max_length'], encoder.hidden_size, device=device)
+        encoder_outputs = torch.zeros(self.config['max_length'], self.encoder.hidden_size, device=device)
 
         loss = 0
 
@@ -208,7 +156,7 @@ class model(nn.Module):
 
         return loss.item() / target_length
 
-    def trainIters(self,n_iters,epochs=5, print_every=100, plot_every=100, learning_rate=0.01,n_evaluate=1000):
+    def trainIters(self,train_pairs,n_iters,epochs=5, print_every=100, plot_every=100, learning_rate=0.01,n_evaluate=1000):
      
         all_losses=[]
         all_test_losses=[]
@@ -217,7 +165,7 @@ class model(nn.Module):
         print_loss_total = 0.  # Reset every print_every
         plot_loss_total = 0. # Reset every plot_every
 
-        training_pairs = [random.choice(self.train_pairs)for i in range(n_iters)]
+        training_pairs = [random.choice(train_pairs)for i in range(n_iters)]
 
 
         for epoch in range(0,epochs):
@@ -248,11 +196,11 @@ class model(nn.Module):
 
             enco_PATH="encoder_epoch"+str(epoch)
             deco_PATH="decoder_epoch"+str(epoch)
-            torch.save(encoder,enco_PATH)
-            torch.save(encoder,deco_PATH)
+            torch.save(self.encoder,enco_PATH)
+            torch.save(self.decoder,deco_PATH)
 
-        torch.save(encoder,"second_enco")
-        torch.save(encoder,"second_deco")       
+        torch.save(self.encoder,"second_enco")
+        torch.save(self.decoder,"second_deco")       
         np.save('all_losses',np.array(all_losses))
 
 

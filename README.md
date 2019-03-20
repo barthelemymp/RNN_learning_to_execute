@@ -1,7 +1,7 @@
 # PRESENTATION
 
 This github repository aims at exploring a few technics of seq2seq. To do so we have focused on the simple problem of translating written numbers to integer.These problem is quite useful to introduce the mains problematics of traduction but in a simpler way. Indeed one main problem of the classical traduction is the diffuclty to evaluate the quality of a traduction. In numbers translation, only one answer is correct which solve this issue.
-Please find a short presentation of the project and the NN architecture [here](https://docs.google.com/presentation/d/1nRMQdYdciJA7pyb-NW1MKJdEfhI2c8zlL1iNgPIr8X4/edit?usp=sharing_eip&ts=5c8fe66c).
+Please find a short presentation of the project and the NN architecture [here](https://docs.google.com/presentation/d/1nRMQdYdciJA7pyb-NW1MKJdEfhI2c8zlL1iNgPIr8X4/edit?usp=sharing_eip&ts=5c8fe66c) and discover the project with the [Jupyter notebook](numberseq2seq.ipynb) we created.
 
 ## STRUCTURE
 
@@ -11,8 +11,10 @@ Please find a short presentation of the project and the NN architecture [here](h
 - [saved_models](saved_models): where we save the model with the best results -> load first_deco.pt and first_enco.pt to get 97% of correct translations
 
 
-
 ## CODES
+
+* [The notebook of the project](numberseq2seq.ipynb)
+We provide a Jupyter notebook that helps to understand how we built, trained and tested our model. The following files correspond to the global architecture of our project.
  
 * [model.py](model.py)
 

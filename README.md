@@ -30,7 +30,7 @@ code to make prediction
 * [data_creation.py](data_creation.py)
 create the dataset
 
-* [utils.py] (utils.py)
+* [utils.py](utils.py)
 gathers useful functions for this problem
 
 

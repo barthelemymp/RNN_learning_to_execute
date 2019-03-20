@@ -17,7 +17,7 @@ This github repository aims at exploring a few technics of seq2seq. To do so we 
 
 ## CODES
  
-* [model.py] (https://github.com/barthelemymp/RNN_learning_to_execute/blob/master/model.py)
+* [model.py](model.py)
 
 This python code define the different part of our neural network. There are three classes:
 - Encoder : this class define an encoder which include an embbedding layer and a GRU.
